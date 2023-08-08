@@ -1,8 +1,8 @@
 num_iters = 5000;
 burn_in=100;
 initial_guess = [.75,2];
-n=1;
-d=100;
+n=100;
+d=4;
 data = zeros(d,n);
 Sigma = buildSigma([.5,6],d);
 for i =1:n
