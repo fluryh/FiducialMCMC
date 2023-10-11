@@ -4,5 +4,5 @@ function ders = getDerD(A,D,d)
     J = zeros(k);
     J(d,d) = 1;
     I = eye(k);
-    ders = 2*lambda*(I-A)*inv(I+A)*J*inv(I-A)*(I+A);
+    ders = 2*lambda*(I-A)/(I+A)*J/(I-A)*(I+A);
 end

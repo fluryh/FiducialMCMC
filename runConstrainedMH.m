@@ -1,50 +1,58 @@
 function [samples, accepts] = runConstrainedMH(num_iters, burn_in, ...
-    buildMatrixFn, matrixDerFn, SigmaDer, paramConstraints, ...
+    buildMatrixFn, SigmaDer, paramConstraints, ...
     initial_guess, data)
+param_size = size(initial_guess,2);
+d = size(data,1);
 total_iters = num_iters + burn_in;
-samples = zeros(2, total_iters+1);
+samples = zeros(param_size, total_iters+1);
 accepts = zeros(1, total_iters+1);
 samples(:,1) = initial_guess;
-d = size(data,1);
+vec_size = size(initial_guess,1);
 initial_Sigma = buildMatrixFn(initial_guess,d);
 samp_num = 4; %this will need to be edited
-evens = [];
-odds = [];
-for i=1:(2^d)
-    bits = 2*int2bit(i,d)-1;
-    if prod(bits) == 1
-        evens = [evens, i];
-    else
-        odds = [odds,i];
-    end
-end
+%evens = [];
+%odds = [];
+%for i=1:(2^d)
+    %bits = 2*int2bit(i,d)-1;
+    %if prod(bits) == 1
+        %evens = [evens, i];
+    %else
+        %odds = [odds,i];
+    %end
+%end
 %Get the values for the initial guess so that it can compare
+disp("Start SVD")
 [S_init,D_init,~] = svd(initial_Sigma);
-if det(S_init) > 0
-    samp_array = evens(randperm(length(evens)));
-else
-    samp_array = odds(randperm(length(odds)));
-end
+D_init = diag(sqrt(diag(D_init)));
+disp("SVD Finished")
+%if det(S_init) > 0
+    %samp_array = evens(randperm(length(evens)));
+%else
+    %samp_array = odds(randperm(length(odds)));
+%end
 prev_jacProdSum = 0;
 success_counter= 0;
 counter = 1;
-while success_counter < samp_num && counter <= length(samp_array)
-    bits = 2*int2bit(samp_array(counter),d) - 1;
-    Stemp = S_init*diag(bits);
+while success_counter < samp_num && counter <= 100
+    bits = 2*randi(2,d-1,1) - 3;
+    diagMat = diag([bits',(2*(det(S_init)>0)-1)*prod(bits)]);
+    Stemp = S_init*diagMat;
     if rcond(eye(d) + Stemp) > 1e-10
         A = (eye(d) - Stemp)/(eye(d) + Stemp);
         A = (A - A')/2;
-        params_collapsed = collapseParameters(A,D_init);
-        P = getProjectionMatrix(matrixDerFn,params_collapsed);
-        prev_jacProdSum = prev_jacProdSum + getCoVJacobian(initial_guess,P,SigmaDer,A,D_init)*getFiducialJac(A,D_init,P,data);
+        %params_collapsed = collapseParameters(A,D_init);
+        P = getProjectionMatrix(initial_guess,A,D_init,SigmaDer);
+        prev_jacProdSum = prev_jacProdSum + getCoVJacobian(initial_guess,P,SigmaDer,A,D_init)*getFiducialJac(A,D_init,P,data,vec_size);
         %disp(getCoVJacobian(initial_guess,P,SigmaDer,A,D_init));
         %disp(getFiducialJac(A,D_init,P,data));
         success_counter = success_counter + 1;
      end
+     disp(counter);
      counter = counter + 1;
 end
 prev_jacProdSum = prev_jacProdSum/success_counter;
 prev_ll = ll_density(initial_guess,buildMatrixFn,data);
+disp("Started!")
 for iter=1:total_iters
     [proposal, flag] = generateProposal(samples(:,iter),paramConstraints);
     if flag == true
@@ -56,23 +64,24 @@ for iter=1:total_iters
         log_likelihood = ll_density(proposal,buildMatrixFn,data);
         Sigma = buildMatrixFn(proposal,d);
         [S,D,~] = svd(Sigma);
-        if det(S) > 0
-            samp_array = evens(randperm(length(evens)));
-        else
-            samp_array = odds(randperm(length(odds)));
-        end
+        %if det(S) > 0
+            %samp_array = evens(randperm(length(evens)));
+        %else
+            %samp_array = odds(randperm(length(odds)));
+        %end
         jacProdSum = 0;
         success_counter= 0;
         counter = 1;
-        while success_counter < samp_num && counter <= length(samp_array)
-            bits = 2*int2bit(samp_array(counter),d) - 1;
-            Stemp = S*diag(bits);
+        while success_counter < samp_num %&& counter <= length(samp_array)
+            bits = 2*randi(2,d-1,1) - 3;
+            diagMat = diag([bits',(2*(det(S)>0)-1)*prod(bits)]);
+            Stemp = S*diagMat;
             if rcond(eye(d) + Stemp) > 1e-10
                 A = (eye(d) - Stemp)/(eye(d) + Stemp);
                 A = (A - A')/2;
-                params_collapsed = collapseParameters(A,D);
-                P = getProjectionMatrix(matrixDerFn,params_collapsed);
-                jacProdSum = jacProdSum + getCoVJacobian(proposal,P,SigmaDer,A,D) * getFiducialJac(A,D,P,data);
+                %params_collapsed = collapseParameters(A,D);
+                P = getProjectionMatrix(proposal,A,D,SigmaDer);
+                jacProdSum = jacProdSum + getCoVJacobian(proposal,P,SigmaDer,A,D) * getFiducialJac(A,D,P,data,vec_size);
                 %disp(getCoVJacobian(proposal,P,SigmaDer,A,D));
                 %disp(getFiducialJac(A,D,P,data));
                 success_counter = success_counter + 1;

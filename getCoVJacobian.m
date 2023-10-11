@@ -9,7 +9,7 @@ for i=1:d
         J = zeros(d);
         J(j,i) = 1;
         J(i,j) = -1;
-        B = inv(I + A) * J / (I+A) *D^2 / (I-A) *(I +A);
+        B = I/(I + A) * J / (I+A) *D^2 / (I-A) *(I +A);
         temp = 2*(B + B');
         counter2 = 1;
         for k = 1:d
@@ -28,14 +28,14 @@ for i =1:d
     counter2 = 1;
     for k =1:d
         for l = k:d
-            detMat(counter,counter2) = temp(k,1);
+            detMat(counter,counter2) = temp(k,l);
             counter2= counter2 + 1;
         end
     end
     counter = counter + 1;
 end
-det2 = det((Q'* detMat') * (detMat * Q));
+det2 = sqrt(det((Q'* detMat') * (detMat * Q)));
 derivative = paramDer(params,d);
-det1 = det(derivative'*derivative);
+det1 = sqrt(det(derivative'*derivative));
 CoVdetJac = det1/det2;
 end
