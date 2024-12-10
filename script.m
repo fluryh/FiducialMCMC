@@ -1,15 +1,18 @@
-rng(1827)
-num_iters = 5000;
-burn_in=1000;
-initial_guess = [.5,6];
-n=100;
-d=4;
+rng(1828)
+num_iters = 10;
+burn_in=0;
+initial_guess = [.25,2];
+n=20;
+d=20;
 data = zeros(d,n);
 Sigma = buildSigma([.5,6],d);
 for i =1:n
     data(:,i) = mvnrnd(zeros(d,1),Sigma);
 end
-[samples, accepts] = runConstrainedMH(num_iters,burn_in,@buildSigma,@DSigma, @isMA1param,initial_guess,data);
+tic;
+step = [.01,.1];
+[samples, accepts] = runConstrainedMH(num_iters,burn_in,@buildSigma,@DSigma,@isMA1param,initial_guess,step,data);
+toc;
 thetas = samples(1,:);
 sigmas = samples(2,:);
 
@@ -33,11 +36,15 @@ xline(6, "r:","LineWidth",5.0)
 xline(mean(sigmas),"g:","LineWidth",5.0)
 xline(MLEs2, "b:", "LineWidth", 5.0)
 legend("","True Value", "Simulated Mean", "MLE","FontSize",12)
+sigmahist = gcf;
+exportgraphics(sigmahist,'sigmahist.png')
 
 histogram(thetas)
 xline(.5, "r:","LineWidth",5.0)
 xline(mean(thetas),"g:","LineWidth",5.0)
 xline(MLEp, "b:", "LineWidth", 5.0)
 legend("","True Value", "Simulated Mean", "MLE","FontSize",12)
+thetahist = gcf;
+exportgraphics(thetahist,'thetahist.png')
 
-disp(sum(accepts)/5000)
+disp(sum(accepts)/(num_iters-burn_in))

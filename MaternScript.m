@@ -1,18 +1,64 @@
 rng(1827)
 num_iters = 5000;
-burn_in=1000;
-distmat = [1,1,1,sqrt(2); 1,1,sqrt(2),1; 1,sqrt(2),1,1;sqrt(2),1,1,1];
-initial_guess = [.5,6,1];
-n=100;
-d=4;
+burn_in=0;
+n=20;
+d=20;
+initial_guess = [.4,8,.75];
+locs = rand(n,2);
+distmat = squareform(pdist(locs));
 data = zeros(d,n);
+step = [.01,.1,.01];
 Sigma = buildMatern([.5,6,1],d,distmat);
 for i =1:n
     data(:,i) = mvnrnd(zeros(d,1),Sigma);
 end
 buildFun = @(param,d)buildMatern(param,d,distmat);
 dFun = @(param,d)dMaternMat(param,d,distmat);
-[samples, accepts] = runConstrainedMH(num_iters,burn_in,buildFun,dFun,@isMaternParam,initial_guess,data);
+tic;
+[samples, accepts] = runConstrainedMH(num_iters,burn_in,buildFun,dFun,@isMaternParam,initial_guess,step,data);
+toc;
 nus = samples(1,:);
 sigmas = samples(2,:);
 rhos = samples(3,:);
+plot(nus)
+
+%max = -Inf;
+%MLEp = 0;
+%MLEn = 0;
+%MLEs2 = 0;
+%for nu = (25:75)/100
+%    for s2 = (500:700)/100
+%        for p = (50:150)/100
+%            param = [nu,s2,p];
+%            ll = ll_density(param,buildFun,data);
+%            if ll > max
+%                max = ll;
+%                MLEp = p;
+%                MLEs2 = s2;
+%                MLEnu = nu;
+%            end
+%        end
+%    end
+%end
+
+%histogram(nus)
+%xline(6, "r:","LineWidth",5.0)
+%xline(mean(nus),"g:","LineWidth",5.0)
+%xline(MLEnu, "b:", "LineWidth", 5.0)
+%legend("","True Value", "Simulated Mean", "MLE","FontSize",12)
+%nushist = gcf;
+%exportgraphics(nushist,'nushist.png')
+
+%histogram(rhos)
+%xline(.5, "r:","LineWidth",5.0)
+%xline(mean(rhos),"g:","LineWidth",5.0)
+%xline(MLEp, "b:", "LineWidth", 5.0)
+%legend("","True Value", "Simulated Mean", "MLE","FontSize",12)
+%rhohist = gcf;
+%exportgraphics(rhohist,'thetahist.png')
+
+disp(mean(nus))
+disp(mean(sigmas))
+disp(mean(rhos))
+
+disp(sum(accepts)/(num_iters-burn_in))
