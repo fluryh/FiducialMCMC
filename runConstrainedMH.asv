@@ -20,6 +20,7 @@ success_counter= 0;
 numUpper = d*(d+1)/2;
 upperIdx = zeros(1, numUpper);
 c = 1;
+I = eye(d);
 for k = 1:d
     for l = k:d
         upperIdx(c) = sub2ind([d, d], k, l);
@@ -188,8 +189,9 @@ for iter=1:total_iters
                     counter = counter + 1;
                 end
                 derAL(end-d+1:end,end-d+1:end) = eye(d);
-                tmp = derAL \ derParam
-                JacMat = Jac/derAL * derParam;
+                tmp = derAL \ derParam;
+                JacMat = Jac * tmp;
+                %JacMat = Jac/derAL * derParam;
                 %disp(sqrt(det(JacMat' * JacMat)))
                 jacProdSum = jacProdSum + sqrt(det(JacMat' * JacMat));
                 success_counter = success_counter + 1;

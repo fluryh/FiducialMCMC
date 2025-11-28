@@ -20,6 +20,7 @@ success_counter= 0;
 numUpper = d*(d+1)/2;
 upperIdx = zeros(1, numUpper);
 c = 1;
+I = eye(d);
 for k = 1:d
     for l = k:d
         upperIdx(c) = sub2ind([d, d], k, l);
@@ -33,12 +34,11 @@ for iter=1:samp_num
     diagMat = diag(bits);
     Stemp = S_init*diagMat;
     nextAs(success_counter+1,:) = bits;
-    if rcond(eye(d) + Stemp) > 1e-5
-        A = (eye(d) - Stemp)/(eye(d) + Stemp);
+    if rcond(I + Stemp) > 1e-5
+        A = (I - Stemp)/(I + Stemp);
         A = (A - A')/2;
         Jac = zeros(d*n,d*(d+1)/2+d);
         counter = 1;
-        I = eye(d);
         for i=1:d
             for j=(i+1):d
                 J = zeros(d);
@@ -59,7 +59,7 @@ for iter=1:samp_num
         counter = counter + 1;
         end
         for k = 0:(n-1)
-            Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = eye(d);
+            Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = I;
         end
         derAL = zeros(d*(d+1)/2+d);
         counter = 1;
@@ -93,7 +93,7 @@ for iter=1:samp_num
             end
             counter = counter + 1;
         end
-        derAL(end-d+1:end,end-d+1:end) = eye(d);
+        derAL(end-d+1:end,end-d+1:end) = I;
         derParam = SigmaDer(initial_guess, d);
         JacMat = Jac/derAL*derParam;
         prev_jacProdSum = prev_jacProdSum + sqrt(det(JacMat' * JacMat));
@@ -127,8 +127,7 @@ for iter=1:total_iters
             end
             diagMat = diag(bits);
             Stemp = S*diagMat;
-            if rcond(eye(d) + Stemp) > 1e-5
-                I = eye(d);
+            if rcond(I + Stemp) > 1e-5
                 A = (I - Stemp)/(I + Stemp);
                 A = (A - A')/2;
                 Jac = zeros(d*n,d*(d+1)/2+d);
@@ -155,7 +154,7 @@ for iter=1:total_iters
                 counter = counter + 1;
                 end
                 for k = 0:(n-1)
-                    Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = eye(d);
+                    Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = I;
                 end
                 derAL = zeros(d*(d+1)/2+d);
                 counter = 1;
@@ -187,7 +186,7 @@ for iter=1:total_iters
                     end
                     counter = counter + 1;
                 end
-                derAL(end-d+1:end,end-d+1:end) = eye(d);
+                derAL(end-d+1:end,end-d+1:end) = I;
                 tmp = derAL \ derParam;
                 JacMat = Jac * tmp;
                 %JacMat = Jac/derAL * derParam;
