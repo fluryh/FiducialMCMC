@@ -7,7 +7,7 @@ step = [.01,.1];
 num_iters = 10;
 burn_in=0;
 initial_guess = [.25,2];
-n=4;
+n=20;
 d=100;
 for run = 1:num_runs
     data = zeros(d,n);
@@ -26,7 +26,8 @@ for run = 1:num_runs
     MCMCEsts(1,run) = mean(thetas);
     MCMCEsts(2,run) = mean(sigmas);
     loglikefun = @(param)-ll_density(param,@buildSigma,@meanMatern,data);
-    MLEEsts(:,run) = fminsearch(loglikefun,[.25,2]);
+    loglikefun([.5,6]);
+    MLEEsts(:,run) = fminsearch(loglikefun,[.5,6]);
     disp(sum(accepts)/(num_iters-burn_in))
 end
 scatter(MCMCEsts(1,:), MCMCEsts(2,:))

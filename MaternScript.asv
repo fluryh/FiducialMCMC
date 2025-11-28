@@ -15,7 +15,7 @@ end
 buildFun = @(param,d)buildMatern(param,d,distmat);
 dFun = @(param,d)dMaternMat(param,d,distmat);
 tic;
-[samples, accepts] = runConstrainedMH(num_iters,burn_in,buildFun,@meanMatern,dFun,@isMaternParam,initial_guess,step,data);
+[samples, accepts] = runConstrainedMH(num_iters,burn_in,buildFun,dFun,@isMaternParam,initial_guess,step,data);
 toc;
 nus = samples(1,:);
 sigmas = samples(2,:);
@@ -24,7 +24,7 @@ plot(nus)
 
 options = optimset('PlotFcns',@optimplotfval);
 loglikefun = @(param)ll_density(param,buildFun,data);
-MLEs = fminsearch(loglikefun,initial_guess,options);
+MLEs = fminsearch(loglikefun,initial_guess,options)
 %max = -Inf;
 %MLEp = 0;
 %MLEn = 0;
