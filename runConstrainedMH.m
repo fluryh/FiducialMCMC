@@ -102,15 +102,21 @@ for iter=1:samp_num
 end
 prev_jacProdSum = prev_jacProdSum/success_counter;
 prev_ll = ll_density(initial_guess,buildMatrixFn,buildMeanFn,data);
+Jac3idx = (d*(d+1)/2 + 1):(d*(d+1)/2 + d);
+Jac = zeros(d*n,d*(d+1)/2+d);
+Jac(:, Jac3idx) = repmat(I, n, 1);
+derAL = zeros(d*(d+1)/2+d);
+derAL(end-d+1:end,end-d+1:end) = I;
+J = zeros(d);
 for iter=1:total_iters
     [proposal, flag] = generateProposal(samples(:,iter),paramConstraints,step_size);
     if flag == true
-        %disp("Couldn't find proposal")
         samples(:,iter+1) = samples(:,iter); 
     else
         log_likelihood = ll_density(proposal,buildMatrixFn,buildMeanFn,data);
         Sigma = buildMatrixFn(proposal,d);
         mu = buildMeanFn(proposal,d);
+        centered_data = data - mu';
         [S,D,~] = svd(Sigma);
         derParam = SigmaDer(proposal, d);
         jacProdSum = 0;
@@ -130,53 +136,53 @@ for iter=1:total_iters
             if rcond(I + Stemp) > 1e-5
                 A = (I - Stemp)/(I + Stemp);
                 A = (A - A')/2;
-                Jac = zeros(d*n,d*(d+1)/2+d);
+                IpA = I+A;
+                ImA = I-A;
+                InvIpA = I/IpA;
+                InvImA = I/ImA;
                 counter = 1;
-                tempMat1 = -2*I/(I + A);
-                tempMat2 = (I-A) \ (data-mu');
+                tempMat1 = -2*InvIpA;
+                tempMat2 = InvImA * (centered_data);
                 for i=1:d
                     for j=(i+1):d
-                        J = zeros(d);
                         J(:,j) = -tempMat1(:,i);
                         J(:,i) = tempMat1(:,j);
                         temp = J * tempMat2 ;
+                        J(:,i) = 0;
+                        J(:,j) = 0;
                         Jac(:,counter) = temp(:);
                         counter = counter + 1;
                     end
                 end
-                tempMat1 = (I - A) /(I + A);
-                tempMat2 = D \(I + A) /(I - A) * (data-mu');
+                tempMat1 = ImA * InvIpA;
+                tempMat2 = D \ IpA *InvImA * (centered_data);
                 for i=1:d
-                    J = zeros(d);
                     J(:,i) = tempMat1(:,i);
                     temp = J * tempMat2;
+                    J(:,i) = 0;
                     Jac(:,counter) = temp(:);
                 counter = counter + 1;
                 end
-                for k = 0:(n-1)
-                    Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = I;
-                end
-                derAL = zeros(d*(d+1)/2+d);
                 counter = 1;
-                BMat1 = I/(I+A);
-                BMat2 = (I+A)\ D^2 / (I-A) * (I+A);
+                BMat2 = InvIpA * D^2 * InvImA * IpA;
                 for i=1:d
                     for j=(i+1):d
-                        J = zeros(d);
-                        J(:,j) = -BMat1(:,i);
-                        J(:,i) = BMat1(:,j);
+                        J(:,j) = -InvIpA(:,i);
+                        J(:,i) = InvIpA(:,j);
                         B1 =  J * BMat2;
+                        J(:,i) = 0;
+                        J(:,j) = 0;
                         temp1 = 2*(B1 + B1');
                         derAL(counter, 1:numUpper) = temp1(upperIdx);
                         counter = counter + 1;
                     end
                 end
-                tempMat1 = (I-A) / (I+A);
-                tempMat2 = (I-A) \ (I+A);
+                tempMat1 = ImA * InvIpA;
+                tempMat2 = InvImA * IpA;
                 for i =1:d
-                    J = zeros(d);
                     J(:,i) = tempMat1(:,i);
                     temp2 = 2 * D(i,i) * J * tempMat2 ;
+                    J(:,i) = 0;
                     counter2 = 1;
                     for k =1:d
                         for l = k:d
@@ -186,12 +192,9 @@ for iter=1:total_iters
                     end
                     counter = counter + 1;
                 end
-                derAL(end-d+1:end,end-d+1:end) = I;
                 tmp = derAL \ derParam;
                 JacMat = Jac * tmp;
-                %JacMat = Jac/derAL * derParam;
-                %disp(sqrt(det(JacMat' * JacMat)))
-                jacProdSum = jacProdSum + sqrt(det(JacMat' * JacMat));
+                jacProdSum = jacProdSum + sqrt(prod(diag(chol(JacMat' * JacMat))));
                 success_counter = success_counter + 1;
             end
         end

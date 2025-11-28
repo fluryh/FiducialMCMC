@@ -4,11 +4,11 @@ MCMCEsts = zeros(2,num_runs);
 MLEEsts = zeros(2,num_runs);
 times = zeros(num_runs);
 step = [.01,.1];
-num_iters = 10;
+num_iters = 3000;
 burn_in=0;
 initial_guess = [.25,2];
 n=20;
-d=100;
+d=20;
 for run = 1:num_runs
     data = zeros(d,n);
     Sigma = buildSigma([.5,6],d);
@@ -16,9 +16,9 @@ for run = 1:num_runs
         data(:,i) = mvnrnd(zeros(d,1),Sigma);
     end
     tic;
-    profile on
+    %profile on
     [samples, accepts] = runConstrainedMH(num_iters,burn_in,@buildSigma,@meanMatern,@DSigma,@isMA1param,initial_guess,step,data);
-    profile viewer
+    %profile viewer
     times(run) = toc;
     disp(times(run))
     thetas = samples(1,:);
@@ -26,8 +26,7 @@ for run = 1:num_runs
     MCMCEsts(1,run) = mean(thetas);
     MCMCEsts(2,run) = mean(sigmas);
     loglikefun = @(param)-ll_density(param,@buildSigma,@meanMatern,data);
-    loglikefun([.5,6]);
-    MLEEsts(:,run) = fminsearch(loglikefun,[.5,6]);
+    MLEEsts(:,run) = fminsearch(loglikefun,[.25,2]);
     disp(sum(accepts)/(num_iters-burn_in))
 end
 scatter(MCMCEsts(1,:), MCMCEsts(2,:))

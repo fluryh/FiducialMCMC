@@ -16,9 +16,9 @@ for run = 1:num_runs
         data(:,i) = mvnrnd(zeros(d,1),Sigma);
     end
     tic;
-    profile on
+    %profile on
     [samples, accepts] = runConstrainedMH(num_iters,burn_in,@buildSigma,@meanMatern,@DSigma,@isMA1param,initial_guess,step,data);
-    profile viewer
+    %profile viewer
     times(run) = toc;
     disp(times(run))
     thetas = samples(1,:);
@@ -29,5 +29,5 @@ for run = 1:num_runs
     MLEEsts(:,run) = fminsearch(loglikefun,[.25,2]);
     disp(sum(accepts)/(num_iters-burn_in))
 end
-scatter(MCMCEsts(1,:), MCMCEsts(2,:))
-histogram(times)
+%scatter(MCMCEsts(1,:), MCMCEsts(2,:))
+%histogram(times)
