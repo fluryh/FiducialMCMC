@@ -4,12 +4,14 @@ MCMCEsts = zeros(2,num_runs);
 MLEEsts = zeros(2,num_runs);
 times = zeros(num_runs);
 step = [.01,.1];
-num_iters = 3000;
+num_iters = 11;
 burn_in=0;
 initial_guess = [.25,2];
-n=20;
-d=20;
-for run = 1:num_runs
+n=4;
+d=100;
+loglikefun = @(param)-ll_density(param,@buildSigma,@meanMatern,data);
+mypool = parpool(8);
+parfor run = 1:num_runs
     data = zeros(d,n);
     Sigma = buildSigma([.5,6],d);
     for i =1:n
@@ -21,13 +23,11 @@ for run = 1:num_runs
     %profile viewer
     times(run) = toc;
     disp(times(run))
-    thetas = samples(1,:);
-    sigmas = samples(2,:);
-    MCMCEsts(1,run) = mean(thetas);
-    MCMCEsts(2,run) = mean(sigmas);
-    loglikefun = @(param)-ll_density(param,@buildSigma,@meanMatern,data);
-    MLEEsts(:,run) = fminsearch(loglikefun,[.25,2]);
     disp(sum(accepts)/(num_iters-burn_in))
+    MCMCEsts(1,run) = mean(samples(1,:));
+    MCMCEsts(2,run) = mean(samples(2,:));
+    MLEEsts(:,run) = fminsearch(loglikefun,[.25,2]);
 end
-scatter(MCMCEsts(1,:), MCMCEsts(2,:))
-histogram(times)
+delete(mypool);
+%scatter(MCMCEsts(1,:), MCMCEsts(2,:))
+%histogram(times)

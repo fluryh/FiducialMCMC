@@ -1,6 +1,6 @@
 function [samples, accepts] = runConstrainedMH(num_iters, burn_in, ...
     buildMatrixFn, buildMeanFn, SigmaDer, paramConstraints, ...
-    initial_guess, step_size, data)
+    initial_guess, step_size, data, numSigMats, keepProp)
 param_size = size(initial_guess,2);
 d = size(data,1);
 n = size(data,2);
@@ -10,9 +10,8 @@ accepts = zeros(1, total_iters+1);
 samples(:,1) = initial_guess;
 initial_Sigma = buildMatrixFn(initial_guess,d);
 initial_mu = buildMeanFn(initial_guess,d);
-samp_num = 8; %This will need to be edited
-keep_prop = .8; %This will need to be edited
-nextAs = zeros(samp_num,d);
+centered_data = data - initial_mu';
+nextAs = zeros(numSigMats,d);
 [S_init,D_init,~] = svd(initial_Sigma);
 D_init = diag(sqrt(diag(D_init)));
 prev_jacProdSum = 0;
@@ -28,7 +27,13 @@ for k = 1:d
     end
 end
 %mypool = parpool(8);
-for iter=1:samp_num
+Jac3idx = (d*(d+1)/2 + 1):(d*(d+1)/2 + d);
+Jac = zeros(d*n,d*(d+1)/2+d);
+Jac(:, Jac3idx) = repmat(I, n, 1);
+derAL = zeros(d*(d+1)/2+d);
+derAL(end-d+1:end,end-d+1:end) = I;
+J = zeros(d);
+for iter=1:numSigMats
     bits = 2*randi(2,d-1,1) - 3;
     bits = [bits',(2*(det(S_init)>0)-1)*prod(bits)];
     diagMat = diag(bits);
@@ -37,53 +42,49 @@ for iter=1:samp_num
     if rcond(I + Stemp) > 1e-5
         A = (I - Stemp)/(I + Stemp);
         A = (A - A')/2;
-        Jac = zeros(d*n,d*(d+1)/2+d);
+        IpA = I+A;
+        ImA = I-A;
+        InvIpA = I/IpA;
+        InvImA = I/ImA;
         counter = 1;
         for i=1:d
             for j=(i+1):d
-                J = zeros(d);
                 J(i,j) = 1;
                 J(j,i) = -1;
-                temp = -2*I/(I + A) * J /(I-A) * (data-initial_mu');
+                temp = -2* InvIpA * J * InvImA * centered_data;
                 Jac(:,counter) = temp(:);
+                J(i,i) = 0;
+                J(j,i) = 0;
                 counter = counter + 1;
             end
         end
         for i=1:d
             J = zeros(d);
             J(i,i) = 1;
-            temp = (I - A) /(I + A) * J /D_init *(I + A) /(I - A) * (data-initial_mu');
-            for k = 0:(n-1)
-                Jac((d*k+1):(d*(k+1)),counter) = temp(:,k+1);
-            end
+            temp = ImA * InvIpA * J / D_init * IpA * InvImA * centered_data;
+            J(i,i) = 0;
+            Jac(:,counter) = temp(:);
         counter = counter + 1;
         end
-        for k = 0:(n-1)
-            Jac((d*k+1):(d*(k+1)),((d*(d+1)/2)+1):(d*(d+1)/2 + d)) = I;
-        end
-        derAL = zeros(d*(d+1)/2+d);
         counter = 1;
         for i=1:d
             for j=(i+1):d
                 J = zeros(d);
                 J(j,i) = 1;
                 J(i,j) = -1;
-                B = (I+A) \ J / (I+A) *D_init^2 / (I-A) * (I+A);
+                B = InvImA * J * InvImA *D_init^2 * InvImA * IpA;
                 temp = 2*(B + B');
-                counter2 = 1;
-                for k = 1:d
-                    for l = k:d
-                        derAL(counter,counter2) = temp(k,l);
-                        counter2 = counter2 + 1;
-                    end
-                end
+                J(j,i) = 0;
+                J(i,j) = 0;
+                derAL(counter, 1:numUpper) = temp(upperIdx);
                 counter = counter + 1;
             end
         end
         for i =1:d
             J = zeros(d);
             J(i,i) = 1;
-            temp = 2 * D_init(i,i) * (I-A) / (I+A) * J / (I-A) * (I+A);
+            temp = 2 * D_init(i,i) * ImA * InvIpA * J * InvImA * IpA;
+            J(i,i) = 0;
             counter2 = 1;
             for k =1:d
                 for l = k:d
@@ -93,21 +94,15 @@ for iter=1:samp_num
             end
             counter = counter + 1;
         end
-        derAL(end-d+1:end,end-d+1:end) = I;
         derParam = SigmaDer(initial_guess, d);
-        JacMat = Jac/derAL*derParam;
-        prev_jacProdSum = prev_jacProdSum + sqrt(det(JacMat' * JacMat));
+        tmp = derAL \ derParam;
+        JacMat = Jac * tmp;
+        prev_jacProdSum = prev_jacProdSum + sqrt(prod(diag(chol(JacMat' * JacMat))));
         success_counter = success_counter + 1;
     end
 end
 prev_jacProdSum = prev_jacProdSum/success_counter;
 prev_ll = ll_density(initial_guess,buildMatrixFn,buildMeanFn,data);
-Jac3idx = (d*(d+1)/2 + 1):(d*(d+1)/2 + d);
-Jac = zeros(d*n,d*(d+1)/2+d);
-Jac(:, Jac3idx) = repmat(I, n, 1);
-derAL = zeros(d*(d+1)/2+d);
-derAL(end-d+1:end,end-d+1:end) = I;
-J = zeros(d);
 for iter=1:total_iters
     [proposal, flag] = generateProposal(samples(:,iter),paramConstraints,step_size);
     if flag == true
@@ -123,8 +118,8 @@ for iter=1:total_iters
         success_counter= 0;
         keepAs = nextAs;
         nextAs = keepAs(randperm(size(keepAs,1)),:);
-        for iter_counter=1:samp_num
-            if  iter_counter <= keep_prop*samp_num
+        for iter_counter=1:numSigMats
+            if  iter_counter <= keepProp*numSigMats
                 bits = nextAs(iter_counter,:);
             else
                 bits = 2*randi(2,d-1,1) - 3;
